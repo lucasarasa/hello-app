@@ -1,0 +1,40 @@
+name: Build, Push e Deploy com Versão Automática
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Definir versão (v<numero de commits>)
+        run: |
+          VERSION="v$(git rev-list --count HEAD)"
+          echo "IMAGE_TAG=$VERSION" >> $GITHUB_ENV
+          echo "Versão da imagem gerada: $VERSION"
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build da imagem Docker
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }} .
+
+      - name: Push da imagem para o Docker Hub
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}
+
+      - name: Rodar a imagem no runner para teste
+        run: |
+          docker run -d -p 5000:5000 ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}
