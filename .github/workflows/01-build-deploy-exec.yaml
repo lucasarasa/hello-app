@@ -41,20 +41,17 @@ jobs:
           repository: ${{ secrets.MANIFEST_REPO }}
           path: manifests
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Listar arquivos do diretório manifests
-        run: ls -l manifests
       
-      # - name: Atualizar arquivo de deployment com nova imagem
-      #   run: |
-      #     sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}|" manifests/deployment.yaml
-      #     echo "Arquivo de deployment atualizado com a nova imagem."
+      - name: Atualizar arquivo de deployment com nova imagem
+        run: |
+          sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}|" manifests/manifests/deployment.yaml
+          echo "Arquivo de deployment atualizado com a nova imagem."
 
-      # - name: Commit e push das mudanças no repo de manifests
-      #   run: |
-      #     cd manifests
-      #     git config user.name "GitHub-Actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #     git add deployment.yaml
-      #     git commit -m "Atualizando deployment para nova imagem ${IMAGE_TAG}"
-      #     git push origin main
+      - name: Commit e push das mudanças no repo de manifests
+        run: |
+          cd manifests
+          git config user.name "GitHub-Actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deployment.yaml
+          git commit -m "Atualizando deployment para nova imagem ${IMAGE_TAG}"
+          git push origin main
