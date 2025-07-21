@@ -15,11 +15,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Definir versão (v<numero de commits>)
+      - name: Definir versão (v<numero de commits>) baseado na mudança do main.py
         run: |
-          VERSION="v$(git rev-list --count HEAD)"
+          VERSION="v$(git log --pretty=oneline -- main.py | wc -l)"
           echo "IMAGE_TAG=$VERSION" >> $GITHUB_ENV
-          echo "Versão da imagem gerada: $VERSION"
+          echo "Versão da imagem gerada (main.py): $VERSION"
 
       - name: Login no Docker Hub
         uses: docker/login-action@v2
@@ -35,6 +35,23 @@ jobs:
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}
 
-      - name: Clonar Repo e realizar PR no repositório dos manifestos
+      - name: Clonar repo de manifests via SSH
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ secrets.MANIFEST_REPO }}
+          path: manifests
+          ssh-key: ${{ secrets.MANIFEST_SSH_KEY }}
+      
+      - name: Atualizar arquivo de deployment com nova imagem
         run: |
-          echo "Clonando e Atualizando o arquivo de manifesto com a nova imagem no repositório -> ${{ secrets.MANIFEST_REPO }}"
+          sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}|" manifests/deployment.yaml
+          echo "Arquivo de deployment atualizado com a nova imagem."
+
+      - name: Commit e push das mudanças no repo de manifests
+        run: |
+          cd manifests
+          git config user.name "GitHub-Actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deployment.yaml
+          git commit -m "Atualizando deployment para nova imagem ${IMAGE_TAG}"
+          git push origin main
