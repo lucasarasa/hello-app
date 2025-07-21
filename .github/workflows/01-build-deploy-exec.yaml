@@ -41,6 +41,9 @@ jobs:
           repository: ${{ secrets.MANIFEST_REPO }}
           path: manifests
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Listar arquivos do diretório manifests
+        run: ls -l manifests
       
       - name: Atualizar arquivo de deployment com nova imagem
         run: |
@@ -52,6 +55,6 @@ jobs:
           cd manifests
           git config user.name "GitHub-Actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add deployment.yaml
+          git add manifests/deployment.yaml
           git commit -m "Atualizando deployment para nova imagem ${IMAGE_TAG}"
           git push origin main
