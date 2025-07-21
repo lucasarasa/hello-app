@@ -40,7 +40,7 @@ jobs:
         with:
           repository: ${{ secrets.MANIFEST_REPO }}
           path: manifests
-          ssh-key: ${{ secrets.MANIFEST_SSH_KEY }}
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
       
       - name: Atualizar arquivo de deployment com nova imagem
         run: |
