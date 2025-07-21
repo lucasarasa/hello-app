@@ -1,4 +1,6 @@
 name: Build, Push e Deploy com Versão Automática
+run-name: Build e Push da Imagem Docker e Deploy Automático
+description: Build e Push da Imagem Docker e Deploy Automático com base na mudança do arquivo
 
 on:
   push:
