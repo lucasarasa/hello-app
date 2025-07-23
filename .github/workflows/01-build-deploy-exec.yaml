@@ -5,14 +5,14 @@ description: Build e Push da Imagem Docker e Deploy Automático com base na muda
 on:
   push:
     paths:
-      - 'main.py'
+      - "main.py"
   workflow_dispatch:
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    outputs: 
-      image_tag : ${{ steps.set-version.outputs.image_tag }}
+    outputs:
+      image_tag: ${{ steps.set-version.outputs.image_tag }}
     steps:
       - name: Checkout do código
         uses: actions/checkout@v3
@@ -54,7 +54,7 @@ jobs:
 
       - name: Listar arquivos do diretório manifests
         run: ls -l manifests
-      
+
       - name: Atualizar arquivo de deployment com nova imagem
         run: |
           sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ needs.build-and-push.outputs.image_tag }}|" manifests/manifests/deployment.yaml
