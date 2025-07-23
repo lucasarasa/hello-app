@@ -52,11 +52,12 @@ jobs:
           sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}|" manifests/manifests/deployment.yaml
           echo "Arquivo de deployment atualizado com a nova imagem."
 
-      - name: Commit e push das mudanças no repo de manifests
-        run: |
-          cd manifests
-          git config user.name "GitHub-Actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifests/deployment.yaml
-          git commit -m "Atualizando deployment para nova imagem ${IMAGE_TAG}"
-          git push origin main
+      - name: Commit e criar Pull Request com nova imagem
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "Atualiza deployment para imagem ${{ env.IMAGE_TAG }}"
+          commit-message: "Atualiza imagem para ${{ env.IMAGE_TAG }}"
+          base: main
+          branch: update-image-${{ env.IMAGE_TAG }}
+          path: manifests
