@@ -24,7 +24,7 @@ jobs:
         run: |
           VERSION="v$(git log --pretty=oneline -- main.py | wc -l)"
           echo "IMAGE_TAG=$VERSION" >> $GITHUB_ENV
-          echo "::set-output name=image_tag::$VERSION"
+          echo "image_tag=$VERSION" >> $GITHUB_OUTPUT
           echo "Versão da imagem gerada (main.py): $VERSION"
 
       - name: Login no Docker Hub
