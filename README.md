@@ -48,7 +48,7 @@ app = FastAPI()
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World! Successful test."}
+    return {"message": "Hello World!"}
 ```
 
 ---
@@ -82,60 +82,77 @@ Para que a pipeline funcione corretamente, é necessário configurar algumas **s
 | Nome              | Descrição                                                          |
 | ----------------- | ------------------------------------------------------------------ |
 | `DOCKER_USERNAME` | Seu nome de usuário no Docker Hub                                  |
-| `DOCKER_PASSWORD` | Sua senha ou **token de acesso** do Docker Hub *(necessário se você usa login via Google)*                        |
+| `DOCKER_PASSWORD` | Sua senha ou **token de acesso** do Docker Hub *(necessário se você usa login via Google)*|
 | `MANIFEST_REPO`   | Nome do repositório de manifests no formato `usuario/nome-do-repo` |
 | `SSH_PRIVATE_KEY` | Chave SSH privada para acessar o repositório de manifests via SSH  |
+| `PERSONAL_TOKEN`  | Token pessoal para criar Pull Requests automaticamente             |
+
 
 ### 📌 Observação:
-
-Se sua conta do Docker Hub está vinculada ao Google, **você precisa criar um token manualmente**:
-
+#### 🐳 Docker Hub com login via Google
+#### Se sua conta do Docker Hub está vinculada ao Google, você precisa criar um token manualmente:
 1. Vá até sua conta Docker: [https://hub.docker.com/settings/security](https://hub.docker.com/settings/security)
 2. Clique em **New Access Token**
 3. Dê um nome e clique em **Generate**
 4. Use esse token no campo `DOCKER_PASSWORD`
 ---
+#### 🔧 Criando PERSONAL_TOKEN para criar Pull Requests automaticamente:
 
-## 🔧 Build da Imagem com GitHub Actions
+1. Acesse: [https://github.com/settings/tokens](https://github.com/settings/tokens)
+2. Clique em **Generate new token (classic)**
+3. Selecione permissões:
+   - `repo` → para permitir leitura e escrita nos repositórios
+   - `workflow` → para autorizar execuções de workflows automatizados
+4. Salve o token gerado e adicione como `PERSONAL_TOKEN` em **Secrets** no repositório `hello-app`.
 
-A pipeline automatiza o processo de:
+## 🔧 Build, Push e Deploy com GitHub Actions
 
-1. Geração automática da versão com base em número de commits no `main.py`
-2. Build da imagem Docker
-3. Push da imagem para o Docker Hub
-4. Atualização do manifest de deployment no repositório `hello-manifest`
+O workflow principal (`01-build-deploy-exec.yaml`) automatiza:
 
-### 🚦 Disparo
+1. Detecta o push de uma nova tag no formato `v*` (ex: `v1.0.0`)
+2. Define a versão da imagem com base nessa tag (extraída de `${{ github.ref_name }}`)
+3. Builda a imagem Docker e envia para o Docker Hub
+4. Clona o repositório `hello-manifests`
+5. Atualiza o `deployment.yaml` com a nova tag da imagem
+6. Cria uma nova branch baseada na `main` (ex: `update-image-v1.0.0`)
+7. Abre um Pull Request automático com a alteração
 
-A pipeline é disparada sempre que há push no arquivo `main.py` ou manualmente via **workflow\_dispatch**.
+---
 
 ### 📄 Exemplo de workflow (`.github/workflows/deploy.yaml`):
 
 ```yaml
 name: Build, Push e Deploy com Versão Automática
-run-name: Build e Push da Imagem Docker e Deploy Automático
-description: Build e Push da Imagem Docker e Deploy Automático com base na mudança do arquivo
+run-name: Build, Push e Deploy - Imagem ${{ github.ref_name }}
+description: >
+  Workflow para buildar e enviar automaticamente a imagem Docker ao Docker Hub
+  sempre que uma nova tag for criada no formato "v*". Após o push da imagem,
+  o deployment da aplicação é atualizado automaticamente para usar a nova versão.
 
 on:
   push:
-    paths:
-      - 'main.py'
+    tags:
+      - "v*"
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.set-version.outputs.image_tag }}
     steps:
       - name: Checkout do código
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Definir versão (v<numero de commits>) baseado na mudança do main.py
+      - name: Definir versão a partir da tag
+        id: set-version
         run: |
-          VERSION="v$(git log --pretty=oneline -- main.py | wc -l)"
-          echo "IMAGE_TAG=$VERSION" >> $GITHUB_ENV
-          echo "Versão da imagem gerada (main.py): $VERSION"
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "IMAGE_TAG=$TAG_NAME" >> $GITHUB_ENV
+          echo "image_tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Versão detectada: $TAG_NAME"
 
       - name: Login no Docker Hub
         uses: docker/login-action@v2
@@ -151,6 +168,10 @@ jobs:
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}
 
+  update-manifest:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
       - name: Clonar repo de manifests via SSH
         uses: actions/checkout@v3
         with:
@@ -160,34 +181,48 @@ jobs:
 
       - name: Listar arquivos do diretório manifests
         run: ls -l manifests
-      
+
       - name: Atualizar arquivo de deployment com nova imagem
         run: |
-          sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ env.IMAGE_TAG }}|" manifests/manifests/deployment.yaml
+          sed -i "s|image: .*|image: ${{ secrets.DOCKER_USERNAME }}/hello-app:${{ needs.build-and-push.outputs.image_tag }}|" manifests/manifests/deployment.yaml
           echo "Arquivo de deployment atualizado com a nova imagem."
 
-      - name: Commit e push das mudanças no repo de manifests
-        run: |
-          cd manifests
-          git config user.name "GitHub-Actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add manifests/deployment.yaml
-          git commit -m "Atualizando deployment para nova imagem ${IMAGE_TAG}"
-          git push origin main
+      - name: Commit e criar Pull Request com nova imagem
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PERSONAL_TOKEN }}
+          title: "Atualiza deployment para imagem ${{ env.IMAGE_TAG }}"
+          commit-message: "Atualiza imagem para ${{ env.IMAGE_TAG }}"
+          base: main
+          branch: update-image-${{ needs.build-and-push.outputs.image_tag }}
+          path: manifests
 ```
 
 ---
 
-## 🧪 Testando Localmente
+## 📊 Como usar Git Tags para versionar corretamente
 
-Você pode executar o container localmente com:
+1. Faça commit normalmente no seu projeto:
 
 ```bash
-docker build -t hello-app:tag .
-docker run -p 8080:80 hello-app:tag
+git add .
+git commit -m "feat: adiciona nova funcionalidade"
+git push
 ```
 
-Abra no navegador: [http://localhost:8080](http://localhost:8080)
+2. Crie a tag:
+
+```bash
+git tag v1.0.0
+```
+
+3. Envie a tag para o GitHub:
+
+```bash
+git push origin v1.0.0
+```
+
+> Isso vai disparar o workflow, que builda a imagem, envia para o Docker Hub e cria o Pull Request automaticamente no repositório de manifests.
 
 ---
 
