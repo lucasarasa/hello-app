@@ -4,8 +4,8 @@ description: Build e Push da Imagem Docker e Deploy Automático com base na muda
 
 on:
   push:
-    paths:
-      - "main.py"
+    tags:
+      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -19,13 +19,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Definir versão (v<numero de commits>) baseado na mudança do main.py
+      - name: Definir versão a partir da tag
         id: set-version
         run: |
-          VERSION="v$(git log --pretty=oneline -- main.py | wc -l)"
-          echo "IMAGE_TAG=$VERSION" >> $GITHUB_ENV
-          echo "image_tag=$VERSION" >> $GITHUB_OUTPUT
-          echo "Versão da imagem gerada (main.py): $VERSION"
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "IMAGE_TAG=$TAG_NAME" >> $GITHUB_ENV
+          echo "image_tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Versão detectada: $TAG_NAME"
 
       - name: Login no Docker Hub
         uses: docker/login-action@v2
