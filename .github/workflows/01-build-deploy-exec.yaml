@@ -1,6 +1,9 @@
 name: Build, Push e Deploy com Versão Automática
-run-name: Build e Push da Imagem Docker e Deploy Automático
-description: Build e Push da Imagem Docker e Deploy Automático com base na mudança do arquivo
+run-name: Build, Push e Deploy - Imagem ${{ github.ref_name }}
+description: >
+  Workflow para buildar e enviar automaticamente a imagem Docker ao Docker Hub
+  sempre que uma nova tag for criada no formato "v*". Após o push da imagem,
+  o deployment da aplicação é atualizado automaticamente para usar a nova versão.
 
 on:
   push:
