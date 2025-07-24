@@ -232,35 +232,71 @@ Após o push e atualização no repositório `hello-manifest`, o ArgoCD detecta 
 
 ---
 
-## 📂 Relacionamento com o Repositório de Manifests
+## 🔐 Acesso via SSH no ArgoCD
 
-O repositório `hello-manifest` contém os YAMLs de deployment da aplicação. Esse repositório é monitorado pelo ArgoCD.
-
-Link para o repositório de manifests: [https://github.com/lucasarasa/hello-manifests](https://github.com/lucasarasa/hello-manifests)
+### 🛠️ Pré-requisitos: instalação e configuração do ArgoCD já concluídas
 
 ---
 
-## 🔐 Acesso via SSH no ArgoCD
+### 🌐 1. Expor o ArgoCD localmente (acesso via navegador)
 
-### ▶️ Usando repositório público (mais simples)
+```bash
+kubectl port-forward svc/argocd-server -n argocd 8081:443
+```
+
+Acesse via browser: [https://localhost:8081](https://localhost:8081)
+
+---
+
+### 🔑 2. Obter senha inicial do usuário `admin`
+
+#### 👉 No **Linux**:
+
+```bash
+kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | base64 -d
+```
+
+#### 👉 No **Windows** (PowerShell):
+
+```powershell
+kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" | ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+```
+
+---
+
+### 🔐 3. Fazer login no ArgoCD via CLI
+
+```bash
+argocd login localhost:8081
+```
+
+Usuário: `admin` Senha: a senha obtida no passo anterior
+
+---
+
+### ▶️ 4. Criar a aplicação (repositório público)
 
 Se o repositório `hello-manifest` for **público**, o ArgoCD pode acessá-lo diretamente. Para criar a aplicação, use o comando:
 
 ```bash
 argocd app create hello-app \
-  --repo https://github.com/SEU-USUARIO/hello-manifest.git \
+  --repo https://github.com/SEU-USUARIO/SEU-REPOSITORIO.git \
   --path manifests \
   --dest-server https://kubernetes.default.svc \
   --dest-namespace default
 ```
 
-Em seguida, sincronize:
+### 🔁 5. Sincronizar a aplicação manualmente
 
 ```bash
 argocd app sync hello-app
 ```
 
-### 🔐 Usando repositório **privado** com chave SSH
+> Ou faça isso pela interface gráfica
+
+---
+
+### 🔐 4.1. Criar a aplicação (repositório privado)
 
 1. Gere um par de chaves SSH com:
 
@@ -306,6 +342,47 @@ kubectl apply -f repo-secret.yaml
 4. O ArgoCD poderá acessar o repositório via SSH.
 
 Veja os detalhes no [README do projeto de manifests](https://github.com/lucasarasa/hello-manifests/blob/main/README.md)
+
+---
+
+## 📂 Relacionamento com o Repositório de Manifests
+
+O repositório `hello-manifest` contém os YAMLs de deployment da aplicação. Esse repositório é monitorado pelo ArgoCD.
+
+Link para o repositório de manifests: [https://github.com/lucasarasa/hello-manifests](https://github.com/lucasarasa/hello-manifests)
+
+---
+
+## 🔮 Evidências de Execução
+
+### As imagens abaixo documentam a execução bem-sucedida da pipeline:
+
+### - ✅ **Build e push da imagem no Docker Hub:**
+<br>
+
+Workflow: ![alt text](assets/WORKFLOW-HELLO-APP.png)
+Push da Imagem: ![alt text](assets/WORKFLOW-HELLO-APP-PUSH-IMAGEM.png)
+Docker Hub: ![alt text](assets/DOCKERHUB.png)
+### - ✅ **Atualização automática dos manifests com a nova tag:**
+<br>
+
+Commit Nova Tag: ![alt text](assets/WORKFLOW-HELLO-APP-ATT-DEPLOYMENT.png)
+PR criado com nova Tag: ![alt text](assets/PR-HELLO-MANIFESTS.png)
+### - ✅ **Print do ArgoCD com a aplicação sincronizada:**
+<br>
+
+ArgoCD com Tag antiga (desatualizado): ![alt text](assets/ENVIDENCIA-ARGOCD-IMAGE.png)
+ArgoCD Sync Policy Enable: ![alt text](assets/ARGO-CD-ENABLE.png)
+ArgoCD Sincronizado (atualizado): ![alt text](assets/ENVIDENCIA-ARGOCD-IMAGE-DEPOIS-SYNC.png)
+ArgoCD aplicação sincronizada: ![alt text](assets/ARGO-CD-INTERFACE-HEALTHY-SYNCED.png)
+### - ✅ **Print do **kubectl get pods** com a aplicação em execução:**
+<br>
+
+Pods em execução: ![alt text](assets/PODS.png)
+### - ✅ **Resposta da aplicação via navegador:**
+<br>
+
+Resposta via navegador: ![alt text](assets/URL-NAVEGADOR.png)
 
 ---
 
